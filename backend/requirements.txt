@@ -1,0 +1,31 @@
+# ==========================================
+# Core FastAPI Framework & Utils
+# ==========================================
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9      # Required for FastAPI file uploads
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+python-dotenv>=1.0.1
+
+# ==========================================
+# Role 1: Computer Vision & OCR
+# ==========================================
+opencv-python-headless>=4.9.0  # Headless is lighter for Docker/Servers
+pyzbar>=0.1.9                  # Barcode decoding
+pytesseract>=0.3.10            # OCR wrapper
+Pillow>=10.3.0                 # Image manipulation
+numpy>=1.26.0                  # Array math for OpenCV
+
+# ==========================================
+# Role 2: NLP & Extraction (LLM Fallback)
+# ==========================================
+langchain>=0.1.13
+langchain-community>=0.0.29
+# Note: Ollama runs as a separate local service, LangChain connects to it directly.
+
+# ==========================================
+# Role 3: Database & Persistence
+# ==========================================
+motor>=3.4.0                   # Async MongoDB driver
+pymongo>=4.6.3                 # Sync MongoDB driver (dependency for motor)
