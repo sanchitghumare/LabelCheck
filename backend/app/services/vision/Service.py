@@ -4,16 +4,13 @@ app/services/vision/service.py
 Concrete vision service that composes the three pure vision modules
 (preprocessor, calibrator, ocr) into the single object the API layer
 expects at ``request.app.state.vision_service``.
-
-This is the ONLY module in `services/vision` allowed to know about all
-three sub-stages together; preprocessor.py, calibrator.py and ocr.py
-each stay strictly single-purpose per their own docstrings.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -45,36 +42,55 @@ def _estimate_net_quantity_font_height_px(
     tokens: Sequence[OcrToken],
 ) -> Optional[float]:
     """
-    Best-effort heuristic: the pixel height of the first OCR token whose
-    text alone matches a "<number> <unit>" net-quantity pattern (e.g.
-    "200g", "1.5 L"). Tesseract sometimes splits the number and unit
-    into separate tokens, in which case this returns None and Rule 9
-    correctly falls back to a FAIL with an explicit "no measurement"
-    reason rather than a guess.
+    Finds the pixel height of the token(s) corresponding to the net-quantity
+    declaration (e.g. '100 g', '100g', '1.5 L').
     """
-    for token in tokens:
-        text = token.get("text", "")
-        box = token.get("box")
-        if not text or not box or len(box) != 4:
+    # Group first: `100` and `g` are commonly emitted as separate words.
+    # A token without line metadata is treated as a single-word line.
+    lines: dict[Any, list[OcrToken]] = defaultdict(list)
+    for index, token in enumerate(tokens):
+        line_id = token.get("line_id")
+        key = tuple(line_id) if isinstance(line_id, (tuple, list)) else ("token", index)
+        lines[key].append(token)
+
+    for line_tokens in lines.values():
+        ordered_tokens = sorted(
+            line_tokens,
+            key=lambda token: int(token.get("box", [0, 0, 0, 0])[0]),
+        )
+        text_parts: list[str] = []
+        spans: list[tuple[int, int, OcrToken]] = []
+        cursor = 0
+        for token in ordered_tokens:
+            text = token.get("text", "").strip()
+            if not text:
+                continue
+            if text_parts:
+                cursor += 1  # account for the joining space
+            start = cursor
+            cursor += len(text)
+            text_parts.append(text)
+            spans.append((start, cursor, token))
+
+        match = NET_QUANTITY_PATTERN.search(" ".join(text_parts))
+        if not match:
             continue
-        if NET_QUANTITY_PATTERN.search(text):
-            return float(box[3])
+        value_start, value_end = match.span("value")
+        for start, end, token in spans:
+            if start < value_end and end > value_start:
+                box = token.get("box", [])
+                if len(box) == 4:
+                    return float(box[3])
+
     return None
 
 
-# Conservative fallback so a barcode-free photo (e.g. cropped tightly on
-# the label) still produces a usable, clearly-flagged-as-low-confidence
-# scale instead of hard-failing the whole scan at the calibration step.
 FALLBACK_PX_PER_MM: float = 11.8  # ~300 DPI equivalent
 
 
 class VisionServiceImpl:
     """
     Default vision service: preprocess -> barcode calibration -> OCR.
-
-    Blocking CV/OCR calls are pushed onto a worker thread via
-    `asyncio.to_thread` so the event loop stays responsive under
-    concurrent uploads.
     """
 
     def __init__(self, fallback_px_per_mm: Optional[float] = FALLBACK_PX_PER_MM) -> None:

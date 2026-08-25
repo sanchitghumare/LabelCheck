@@ -156,4 +156,5 @@ class ComplianceEngine:
             verdict=verdict,
             px_per_mm=px_per_mm,
             rule_checks=rule_checks,
+            extracted_fields=commodity,
         )
