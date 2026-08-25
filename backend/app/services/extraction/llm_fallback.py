@@ -39,7 +39,7 @@ class LocalLlmFallback:
         model: str | None = None,
         base_url: str | None = None,
     ) -> None:
-        self.model = model or os.getenv("OLLAMA_MODEL", "llama3")
+        self.model = model or os.getenv("OLLAMA_MODEL", "llama3.2")
         self.base_url = base_url or os.getenv("OLLAMA_BASE_URL")
 
     def extract(self, raw_ocr_text: str) -> dict[str, Optional[str]]:

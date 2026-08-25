@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.commodity import PackagedCommodity
+
 
 class RuleCheck(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -22,4 +24,5 @@ class ComplianceVerdict(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc)
     )
     px_per_mm: float = Field(gt=0)
+    extracted_fields: PackagedCommodity
     rule_checks: list[RuleCheck]
