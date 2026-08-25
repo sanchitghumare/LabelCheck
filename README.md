@@ -9,7 +9,7 @@ Ministry of Consumer Affairs, Food & Public Distribution
 
 ## What this is
 
-A system that reads the label of a pre-packaged commodity from a photograph and verifies it against the mandatory declarations required by **Rule 6 of the Legal Metrology (Packaged Commodities) Rules, 2011**.
+A system that reads the label of a pre-packaged commodity from a photograph and verifies it against the mandatory declarations required by **Rule 6 and Rule 9 of the Legal Metrology (Packaged Commodities) Rules, 2011**.
 
 The output is not a score. It is a verdict naming the specific declaration that is missing or non-conforming, with the extracted evidence attached — so a Legal Metrology officer can act on it, and a manufacturer can contest it.
 
