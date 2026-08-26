@@ -6,35 +6,37 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from app.api.endpoints import router
-from app.core.database import close_mongo_connection, connect_to_mongo
 from app.services.compliance.rule_engine import ComplianceEngine
 from app.services.extraction.orchestrator import ExtractionOrchestrator
 from app.services.vision.Service import VisionServiceImpl
+from app.api.endpoints import router
+from app.core.database import close_mongo_connection, connect_to_mongo
+from app.modules.scans.service import ScanService
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # --- Required services: always constructed so /api/v1/scan never 503s. ---
-    app.state.vision_service = VisionServiceImpl()
-    app.state.extraction_orchestrator = ExtractionOrchestrator()
-    app.state.compliance_engine = ComplianceEngine()
+    # --- Application services ---
+    app.state.scan_service = ScanService(
+        vision_service=VisionServiceImpl(),
+        extraction_orchestrator=ExtractionOrchestrator(),
+        compliance_engine=ComplianceEngine(),
+    )
 
-    # --- Mongo is optional: missing/unreachable Mongo must never stop the
-    # API from serving scans in mock/local/offline mode. ---
+    # --- MongoDB is optional ---
+    # The API continues serving scans when MongoDB is unavailable.
     app.state.mongo_connected = False
+
     try:
         await connect_to_mongo()
         app.state.mongo_connected = True
         logger.info("MongoDB connected.")
-    except Exception as exc:  # noqa: BLE001 - intentionally broad: any Mongo
-        # failure (missing MONGODB_URI, unreachable host, auth error, etc.)
-        # must degrade gracefully rather than crash the app.
+    except Exception as exc:  # noqa: BLE001
         logger.warning(
-            "MongoDB unavailable, continuing without persistence: %s", exc
+            "MongoDB unavailable, continuing without persistence: %s",
+            exc,
         )
 
     try:

@@ -8,6 +8,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo.results import InsertOneResult
 
 from app.schemas.response import ComplianceVerdict
+from app.schemas.audit import AuditRecord
 
 MONGODB_URI = os.getenv("MONGODB_URI")
 MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "legal_metrology")
@@ -52,16 +53,11 @@ def get_database() -> AsyncIOMotorDatabase:
     return _database
 
 
-async def save_audit(
-    verdict: ComplianceVerdict | Mapping[str, Any],
-) -> str:
+async def save_audit(audit: AuditRecord) -> str:
     """Persist a final audit result and return the inserted document ID."""
     database = get_database()
 
-    if isinstance(verdict, ComplianceVerdict):
-        document = verdict.model_dump(mode="json")
-    else:
-        document = dict(verdict)
+    document = audit.model_dump(mode="json")
 
     result: InsertOneResult = await database["audits"].insert_one(document)
     return str(result.inserted_id)

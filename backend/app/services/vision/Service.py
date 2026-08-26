@@ -19,7 +19,7 @@ from app.services.extraction.regex_parser import NET_QUANTITY_PATTERN
 from app.services.vision.calibrator import calibrate_scale
 from app.services.vision.ocr import OcrToken, extract_text_boxes
 from app.services.vision.preprocessor import ImageDecodeError, preprocess_image
-
+from app.services.vision.quality import assess_image_quality
 logger = logging.getLogger(__name__)
 
 
@@ -101,6 +101,22 @@ class VisionServiceImpl:
     ) -> VisionAnalysisResult:
         try:
             processed_image = await asyncio.to_thread(preprocess_image, image_bytes)
+            quality = await asyncio.to_thread(
+                assess_image_quality,
+                processed_image,
+            )
+
+            logger.info(
+                "Image quality: acceptable=%s, size=%dx%d, blur=%.2f, "
+                "brightness=%.2f, contrast=%.2f, issues=%s",
+                quality.is_acceptable,
+                quality.width_px,
+                quality.height_px,
+                quality.blur_score,
+                quality.brightness,
+                quality.contrast,
+                quality.issues,
+            )
         except ImageDecodeError as exc:
             raise VisionAnalysisError(str(exc)) from exc
 
