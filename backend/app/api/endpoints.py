@@ -7,7 +7,7 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 
 from app.modules.scans.service import ScanService
 from app.schemas.response import ComplianceVerdict
-from app.services.vision.Service import VisionAnalysisError
+from app.schemas.scan import ScanResult
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def _get_scan_service(request: Request) -> ScanService:
 
 @router.post(
     "/scan",
-    response_model=ComplianceVerdict,
+    response_model=ScanResult,
     status_code=status.HTTP_201_CREATED,
 )
 async def scan_packaged_commodity(
@@ -65,12 +65,6 @@ async def scan_packaged_commodity(
             content_type=file.content_type,
             scan_id=scan_id,
         )
-
-    except VisionAnalysisError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
-        ) from exc
 
     except ValueError as exc:
         raise HTTPException(

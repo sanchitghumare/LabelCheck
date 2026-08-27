@@ -1,17 +1,11 @@
 from __future__ import annotations
 
-import logging
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
-from app.core.database import save_audit
-from app.schemas.audit import AuditRecord
 from app.schemas.commodity import PackagedCommodity
 from app.schemas.response import ComplianceVerdict
 from app.services.compliance.rule_engine import ComplianceEngine
-from app.services.compliance.rule_versions import RULESET_VERSION
 from app.services.extraction.orchestrator import ExtractionOrchestrator
-
-logger = logging.getLogger(__name__)
 
 
 class VisionService(Protocol):
@@ -27,8 +21,10 @@ class ScanService:
     """
     Application service responsible for the complete scan pipeline.
 
-    Coordinates vision, extraction, compliance, and audit persistence.
-    The API layer should only handle HTTP concerns.
+    Coordinates vision, extraction, and compliance evaluation.
+
+    Persistence and authentication are intentionally handled by the
+    Next.js application layer.
     """
 
     def __init__(
@@ -47,15 +43,32 @@ class ScanService:
         content_type: str | None,
         scan_id: str,
     ) -> ComplianceVerdict:
-        """Run the complete packaged-commodity audit pipeline."""
+        """
+        Run the complete packaged-commodity scan pipeline.
 
+        Pipeline:
+            1. Vision
+            2. Extraction
+            3. Compliance evaluation
+
+        The scan_id is accepted so the existing service interface remains
+        compatible with the API layer. Persistence is handled separately
+        by Next.js.
+        """
+
+        # ---------------------------------------------------------
         # 1. Vision
+        # ---------------------------------------------------------
+
         vision_result = await self.vision_service.analyze(
             image_bytes=image_bytes,
             content_type=content_type,
         )
 
+        # ---------------------------------------------------------
         # 2. Extraction
+        # ---------------------------------------------------------
+
         ocr_results = [
             dict(token)
             for token in vision_result.ocr_results
@@ -67,7 +80,10 @@ class ScanService:
 
         commodity: PackagedCommodity = extraction_result.commodity
 
+        # ---------------------------------------------------------
         # 3. Compliance
+        # ---------------------------------------------------------
+
         verdict = self.compliance_engine.evaluate(
             commodity=commodity,
             px_per_mm=vision_result.px_per_mm,
@@ -75,32 +91,5 @@ class ScanService:
                 vision_result.net_quantity_font_height_px
             ),
         )
-
-        # 4. Build immutable audit record
-        audit = AuditRecord(
-            scan_id=scan_id,
-            timestamp=verdict.timestamp,
-            verdict=verdict.verdict,
-            px_per_mm=vision_result.px_per_mm,
-            extracted_fields=commodity,
-            rule_checks=verdict.rule_checks,
-            extraction_confidence=extraction_result.confidence,
-            extraction_evidence=cast(
-                dict[str, object],
-                extraction_result.evidence,
-            ),
-            ruleset_version=RULESET_VERSION,
-            calibration_fallback=vision_result.is_calibration_fallback,
-            barcode_data=vision_result.barcode_data,
-        )
-
-        # 5. Persistence is best-effort
-        try:
-            await save_audit(audit)
-        except Exception:
-            logger.exception(
-                "Failed to persist audit record for scan %s.",
-                scan_id,
-            )
 
         return verdict

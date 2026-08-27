@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 // Point directly to FastAPI or fallback to local env
-const API_ENDPOINT = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1/scan";
+const API_ENDPOINT = process.env.NEXT_PUBLIC_API_URL || "/api/scan";
 
 function StatusPill({ status }) {
   if (status === "PASS") {
